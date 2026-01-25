@@ -84,9 +84,8 @@ export function DataTable<TData, TValue>({
       <div className="flex flex-col sm:flex-row items-center py-4 justify-between gap-4">
         <div className="relative w-full sm:max-w-sm">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-
           <Input
-            placeholder="Search name or email..."
+            placeholder="Search date, receiver, etc..."
             value={(table.getState().globalFilter as string) ?? ""}
             onChange={(event) => table.setGlobalFilter(event.target.value)}
             className="pl-9 text-sm"
@@ -95,22 +94,22 @@ export function DataTable<TData, TValue>({
 
         <div className="flex gap-4 w-full sm:w-auto">
           <Button variant="outline" className="flex-1 sm:flex-none">
-            Import User <DownloadIcon />
-          </Button>
-          <Button variant="outline" className="flex-1 sm:flex-none">
             Export to Excel <UploadIcon />
           </Button>
         </div>
       </div>
 
       <div className="rounded-md border">
-        <Table>
+        <Table className="table-auto md:table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  const customWidthClass =
+                    header.column.columnDef.meta?.className;
+
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className={customWidthClass}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -130,14 +129,19 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const customWidthClass =
+                      cell.column.columnDef.meta?.className;
+
+                    return (
+                      <TableCell key={cell.id} className={customWidthClass}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             ) : (
@@ -166,7 +170,7 @@ export function DataTable<TData, TValue>({
             <SelectTrigger className="h-8 w-17.5">
               <SelectValue placeholder={table.getState().pagination.pageSize} />
             </SelectTrigger>
-            <SelectContent side="top">
+            <SelectContent position="popper">
               {[5, 10, 20, 30, 40, 50].map((pageSize) => (
                 <SelectItem key={pageSize} value={`${pageSize}`}>
                   {pageSize}
