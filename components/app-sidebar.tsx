@@ -61,22 +61,22 @@ const data = {
       icon: ChartColumn,
     },
     {
-      name: "Calendar",
+      name: "Campaign Calendar",
       url: "/marketing/calendar",
       icon: Calendar,
     },
     {
-      name: "Activity",
+      name: "Campaign Activity",
       url: "/marketing/activity",
       icon: Logs,
     },
     {
-      name: "Users",
+      name: "Users List",
       url: "/marketing/users",
       icon: LucideUsers,
     },
-  ],
-};
+    ],
+  };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (

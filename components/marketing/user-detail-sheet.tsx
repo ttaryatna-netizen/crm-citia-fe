@@ -34,7 +34,7 @@ export function UserDetailSheet({
           Detail
         </Button>
       </SheetTrigger>
-      <SheetContent className="max-w-100 md:max-w-150 w-full overflow-y-auto">
+      <SheetContent className="max-w-70 md:max-w-100 w-full overflow-y-auto">
         <SheetHeader className="text-left">
           <SheetTitle className="text-xl font-bold flex items-center gap-2">
             User Details

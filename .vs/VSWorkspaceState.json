@@ -1,0 +1,15 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\.next",
+    "\\.next\\dev",
+    "\\app\\login",
+    "\\app\\marketing",
+    "\\app\\marketing\\users",
+    "\\app\\users",
+    "\\components",
+    "\\components\\marketing"
+  ],
+  "SelectedNode": "\\components\\app-sidebar.tsx",
+  "PreviewInSolutionExplorer": false
+}

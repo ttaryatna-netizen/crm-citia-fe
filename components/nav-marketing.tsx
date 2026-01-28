@@ -39,7 +39,7 @@ export function NavMarketing({
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Marketing</SidebarGroupLabel>
+      <SidebarGroupLabel>Marketing Campaign</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
