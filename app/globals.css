@@ -124,14 +124,12 @@
     }
 }
 
-/* WRAPPER UTAMA */
 .rbc-calendar {
     font-family: inherit !important;
     color: var(--foreground) !important;
     min-height: 600px;
 }
 
-/* HILANGKAN BORDER BAWAAN YANG JELEK */
 .rbc-month-view,
 .rbc-time-view,
 .rbc-agenda-view,
@@ -141,7 +139,6 @@
     border: none !important;
 }
 
-/* SETUP GRID BARU (UNTITLED STYLE) */
 .rbc-month-view {
     border: 1px solid var(--border) !important;
     border-radius: 12px !important;
@@ -171,7 +168,6 @@
     border-top: 1px solid var(--border) !important;
 }
 
-/* TANGGAL */
 .rbc-date-cell {
     padding: 8px !important;
     font-size: 14px !important;
@@ -179,12 +175,10 @@
     color: var(--foreground) !important;
 }
 
-/* HARI INI (TODAY) */
 .rbc-today {
     background-color: transparent !important;
 }
 
-/* Highlight Angka Hari Ini */
 .rbc-now .rbc-button-link {
     color: var(--background) !important;
     background-color: var(--foreground) !important;
@@ -196,7 +190,6 @@
     border-radius: 50%;
 }
 
-/* OFF RANGE (BULAN LAIN) */
 .rbc-off-range-bg {
     background-color: var(--muted) !important;
 }
@@ -205,7 +198,6 @@
     color: var(--muted-foreground) !important;
 }
 
-/* EVENT STYLING */
 .rbc-event {
     box-shadow: none !important;
     border-radius: 6px !important;
