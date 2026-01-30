@@ -71,12 +71,12 @@ const data = {
       icon: Logs,
     },
     {
-      name: "Users List",
+      name: "User List",
       url: "/marketing/users",
       icon: LucideUsers,
     },
-    ],
-  };
+  ],
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (

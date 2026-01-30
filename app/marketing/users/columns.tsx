@@ -10,9 +10,8 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import { UserDetailSheet } from "@/components/marketing/user-detail-sheet";
-import { UserForm } from "@/components/marketing/user-form";
+import { UserForm, UserFormData } from "@/components/marketing/user-form";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,11 +29,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export type UserMarketing = {
   id: string;
-  name: string;
-  type: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  clientCategory: {
+    id: string;
+    name: string;
+  };
+  company: string;
+  title: string;
+  personalInformation: string;
 };
 
 export const columns: ColumnDef<UserMarketing>[] = [
@@ -56,7 +64,7 @@ export const columns: ColumnDef<UserMarketing>[] = [
     },
   },
   {
-    accessorKey: "name",
+    accessorKey: "fullName",
     meta: {
       className: "w-[400px]",
     },
@@ -82,15 +90,15 @@ export const columns: ColumnDef<UserMarketing>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex items-center h-full px-3">
-          <span className="text-sm">{row.getValue("name")}</span>
+          <span className="text-sm">{row.getValue("fullName")}</span>
         </div>
       );
     },
   },
   {
-    accessorKey: "type",
+    accessorKey: "company",
     meta: {
-      className: "w-[400px]",
+      className: "w-[300px]",
     },
     enableGlobalFilter: true,
     header: ({ column }) => {
@@ -100,7 +108,7 @@ export const columns: ColumnDef<UserMarketing>[] = [
           className="p-0 hover:bg-transparent"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          User Type
+          Company
           {column.getIsSorted() === "asc" ? (
             <ChevronUp className="ml-2 h-4 w-4" />
           ) : column.getIsSorted() === "desc" ? (
@@ -114,10 +122,40 @@ export const columns: ColumnDef<UserMarketing>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex items-center h-full px-3">
-          <span className="text-sm">{row.getValue("type")}</span>
+          <span className="text-sm">{row.getValue("company")}</span>
         </div>
       );
     },
+  },
+  {
+    id: "category",
+    accessorFn: (row) => row.clientCategory?.name,
+    meta: {
+      className: "w-[200px]",
+    },
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          className="p-0 hover:bg-transparent"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Category
+          {column.getIsSorted() === "asc" ? (
+            <ChevronUp className="ml-2 h-4 w-4" />
+          ) : column.getIsSorted() === "desc" ? (
+            <ChevronDown className="ml-2 h-4 w-4" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+          )}
+        </Button>
+      );
+    },
+    cell: ({ row }) => (
+      <div className="flex items-center h-full px-3">
+        <span className="text-sm">{row.getValue("category") || "-"}</span>
+      </div>
+    ),
   },
   {
     id: "actions",
@@ -126,44 +164,95 @@ export const columns: ColumnDef<UserMarketing>[] = [
     },
     enableGlobalFilter: false,
     header: () => <div className="w-auto md:w-15 px-auto md:px-4">Action</div>,
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       return (
         <div className="w-auto md:w-15 px-0">
-          <ActionCell userMarketing={row.original} />
+          <ActionCell
+            userMarketing={row.original}
+            onSuccess={() => table.options.meta?.refreshData()}
+          />
         </div>
       );
     },
   },
 ];
 
-const ActionCell = ({ userMarketing }: { userMarketing: UserMarketing }) => {
-  const router = useRouter();
+const ActionCell = ({
+  userMarketing,
+  onSuccess,
+}: {
+  userMarketing: UserMarketing;
+  onSuccess: () => void;
+}) => {
   const [openSheet, setOpenSheet] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const handleDelete = async () => {
-    /* try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${user.id}`, {
-            method: 'DELETE',
-        });
+    const toastId = toast.loading("Deleting user...");
 
-        if (!response.ok) {
-            throw new Error('Failed to delete user');
-        }
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/marketing/clients/${userMarketing.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
-        router.refresh();
+      if (!response.ok) {
+        throw new Error("Failed to delete user");
+      }
 
+      toast.success("User deleted", {
+        id: toastId,
+        description: `User ${userMarketing.fullName} has been removed.`,
+      });
+      onSuccess();
+      setOpenDelete(false);
     } catch (error) {
-        alert("Failed to delete user");
+      console.error(error);
+      toast.error("Deletion failed", {
+        id: toastId,
+        description: "Something went wrong. Please try again.",
+      });
     }
-    */
   };
 
-  const handleSaveEdit = async (formData: UserMarketing) => {
-    console.log("Updating user:", userMarketing.id, formData);
-    // await fetch(`/api/users/${userMarketing.id}`, { method: 'PUT', body: ... })
-    router.refresh();
+  const handleSaveEdit = async (formData: UserFormData) => {
+    const toastId = toast.loading("Updating user...");
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/marketing/clients/${userMarketing.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update user");
+      }
+
+      toast.success("User updated", {
+        id: toastId,
+        description: "User details have been updated successfully.",
+      });
+
+      onSuccess();
+    } catch (err) {
+      const error = err as Error;
+      console.error(error);
+      toast.error("Update failed", {
+        id: toastId,
+        description: error.message || "Failed to update user.",
+      });
+    }
   };
 
   return (
@@ -201,7 +290,7 @@ const ActionCell = ({ userMarketing }: { userMarketing: UserMarketing }) => {
       <UserDetailSheet
         open={openSheet}
         onOpenChange={setOpenSheet}
-        user={userMarketing}
+        userId={userMarketing.id}
       />
 
       {/*Edit*/}
@@ -217,7 +306,7 @@ const ActionCell = ({ userMarketing }: { userMarketing: UserMarketing }) => {
         open={openEdit}
         onOpenChange={setOpenEdit}
         user={userMarketing}
-        onSave={(data) => console.log("Save:", data)}
+        onSave={handleSaveEdit}
       />
 
       {/*Delete*/}
@@ -243,16 +332,22 @@ const ActionCell = ({ userMarketing }: { userMarketing: UserMarketing }) => {
               This action cannot be undone. This will permanently delete the
               user account for{" "}
               <span className="font-bold text-foreground">
-                {userMarketing.name}
+                {userMarketing.fullName}
+              </span>{" "}
+              from{" "}
+              <span className="font-bold text-foreground">
+                {userMarketing.company}.
               </span>
-              .
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
 
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
               Yes, Delete

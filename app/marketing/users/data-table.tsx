@@ -1,15 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
   SortingState,
+  PaginationState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
   RowData,
 } from "@tanstack/react-table";
@@ -39,84 +38,243 @@ import {
   UploadIcon,
   DownloadIcon,
   SearchIcon,
+  X,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+
+function useDebounce<T>(value: T, delay?: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 declare module "@tanstack/react-table" {
-  s;
   interface ColumnMeta<TData extends RowData, TValue> {
     className?: string;
+  }
+
+  interface TableMeta<TData extends RowData> {
+    refreshData: () => void;
   }
 }
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
-  data: TData[];
+  refreshTrigger?: number;
 }
+
+type Category = {
+  id: string;
+  name: string;
+};
 
 export function DataTable<TData, TValue>({
   columns,
-  data,
+  refreshTrigger = 0,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
-  );
+  const [data, setData] = useState<TData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [totalRows, setTotalRows] = useState(0);
+  const [isError, setIsError] = useState(false);
 
-  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const debouncedGlobalFilter = useDebounce(globalFilter, 500);
 
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  // fetch data client
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+
+      params.set("page", (pagination.pageIndex + 1).toString());
+      params.set("limit", pagination.pageSize.toString());
+
+      if (debouncedGlobalFilter) {
+        params.set("search", debouncedGlobalFilter);
+      }
+
+      const categoryFilter = columnFilters.find((f) => f.id === "category");
+      if (categoryFilter && categoryFilter.value !== "all") {
+        params.set("category", categoryFilter.value as string);
+      }
+
+      if (sorting.length > 0) {
+        const sortState = sorting[0];
+
+        params.set("sort_by", sortState.id);
+        params.set("order", sortState.desc ? "desc" : "asc");
+      }
+
+      const response = await fetch(
+        `${baseUrl}/api/marketing/clients?${params.toString()}`,
+        {
+          cache: "no-store",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Server Error (${response.status})`);
+      }
+
+      const result = await response.json();
+      setData(result.data || []);
+      setTotalRows(result.meta?.total || 0);
+    } catch (err) {
+      const error = err as Error;
+      console.error("Error fetching data:", error);
+      setData([]);
+      setTotalRows(0);
+      setIsError(true);
+
+      let message = "There was an error fetching data.";
+
+      if (error.message === "Failed to fetch") {
+        message = "Can't connect to server.";
+      } else if (error.message.includes("Server Error")) {
+        message = error.message;
+      }
+
+      toast.error("Failed to Load Data", {
+        description: message,
+        action: {
+          label: "Try Again",
+          onClick: () => fetchData(),
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    debouncedGlobalFilter,
+    columnFilters,
+    sorting,
+    baseUrl,
+  ]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, refreshTrigger]);
+
+  // fetch categories
+  const [categories, setCategories] = useState<Category[]>([]);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(
+          `${baseUrl}/api/marketing/client-categories`,
+        );
+        const result = await response.json();
+        setCategories(result.data || []);
+      } catch (error) {
+        console.error("Gagal ambil kategori:", error);
+      }
+    };
+    fetchCategories();
+  }, [baseUrl]);
+
+  // table configuration
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
+    pageCount: Math.ceil(totalRows / pagination.pageSize),
     state: {
       sorting,
       columnFilters,
       globalFilter,
+      pagination,
     },
+    meta: {
+      refreshData: fetchData,
+    },
+    manualPagination: true,
+    manualFiltering: true,
+    onPaginationChange: setPagination,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  const totalRows = table.getFilteredRowModel().rows.length;
-  const pageIndex = table.getState().pagination.pageIndex;
-  const pageSize = table.getState().pagination.pageSize;
-  const startRow = pageIndex * pageSize + 1;
-  const endRow = Math.min((pageIndex + 1) * pageSize, totalRows);
+  // showing pageIndex
+  const startRow = pagination.pageIndex * pagination.pageSize + 1;
+  const endRow = Math.min(
+    (pagination.pageIndex + 1) * pagination.pageSize,
+    totalRows,
+  );
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-center py-4 justify-between gap-4">
         <div className="flex gap-4 w-full sm:w-auto">
           <div className="relative w-full sm:max-w-sm">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <SearchIcon className="h-4 w-4" />
+              )}
+            </div>
             <Input
-              placeholder="Search name..."
-              value={(table.getState().globalFilter as string) ?? ""}
-              onChange={(event) => table.setGlobalFilter(event.target.value)}
-              className="pl-9 text-sm"
+              placeholder="Search name, company..."
+              value={globalFilter ?? ""}
+              onChange={(e) => {
+                setGlobalFilter(e.target.value);
+                setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+              }}
+              className="pl-9 pr-8 text-sm"
             />
+
+            {globalFilter?.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setGlobalFilter("");
+                  setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                }}
+              >
+                <X className="h-3 w-3" />
+                <span className="sr-only">Clear search</span>
+              </Button>
+            )}
           </div>
 
           <Select
-            value={table.getColumn("type")?.getFilterValue() as string}
+            value={
+              (table.getColumn("category")?.getFilterValue() as string) ?? ""
+            }
             onValueChange={(value) => {
-              table
-                .getColumn("type")
-                ?.setFilterValue(value === "all" ? undefined : value);
+              const filterValue = value === "all" ? undefined : value;
+              table.getColumn("category")?.setFilterValue(filterValue);
+              setPagination((prev) => ({ ...prev, pageIndex: 0 }));
             }}
           >
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Filter Type" />
+              <SelectValue placeholder="Filter Category" />
             </SelectTrigger>
             <SelectContent position="popper" sideOffset={5}>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="Admin">Admin</SelectItem>
-              <SelectItem value="User">User</SelectItem>
-              <SelectItem value="Manager">Manager</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={String(category.id)}>
+                  {category.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
